@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domain Scorer - Analyse de domaines</title>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: #0f1117; color: #e4e4e7; display: flex; justify-content: center; padding: 40px 20px; margin: 0; }
+        .container { max-width: 900px; width: 100%; }
+        h1 { font-weight: 700; font-size: 28px; margin-bottom: 8px; color: #fff; }
+        .subtitle { color: #a1a1aa; margin-bottom: 30px; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
+        .search-box input { flex: 1; padding: 14px 20px; border-radius: 12px; border: 1px solid #27272a; background: #18181b; color: #fff; font-size: 16px; min-width: 200px; }
+        .search-box input:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+        .search-box button { padding: 14px 28px; background: #3b82f6; color: #fff; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 16px; transition: background 0.2s; }
+        .search-box button:hover { background: #2563eb; }
+        .search-box button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #result { margin-top: 20px; }
+        .card { background: #18181b; border: 1px solid #27272a; border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+        .domain-name { font-size: 24px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .badge { padding: 4px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; }
+        .badge-green { background: #052e16; color: #4ade80; }
+        .badge-yellow { background: #451a03; color: #fbbf24; }
+        .badge-red { background: #450a0a; color: #f87171; }
+        .scores-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+        @media (max-width: 500px) { .scores-grid { grid-template-columns: 1fr; } }
+        .score-item { background: #1f1f23; padding: 12px 16px; border-radius: 10px; }
+        .score-label { font-size: 13px; color: #a1a1aa; }
+        .score-value { font-size: 28px; font-weight: 700; }
+        .raw-data { background: #1f1f23; padding: 16px; border-radius: 10px; font-family: monospace; font-size: 14px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; color: #d4d4d8; margin-top: 12px; }
+        .error { background: #450a0a; border: 1px solid #7f1d1d; padding: 16px; border-radius: 12px; color: #fca5a5; }
+        .loading { color: #a1a1aa; font-style: italic; }
+        .batch-section { margin-top: 30px; border-top: 1px solid #27272a; padding-top: 20px; }
+        .batch-section textarea { width: 100%; height: 120px; padding: 14px; border-radius: 12px; border: 1px solid #27272a; background: #18181b; color: #fff; font-family: monospace; resize: vertical; }
+        .batch-btn { margin-top: 10px; background: #6b7280; }
+        .batch-btn:hover { background: #4b5563; }
+        .batch-results { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+        .batch-item { background: #1f1f23; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6; }
+        .batch-item .b-domain { font-weight: 600; }
+        .batch-item .b-seo { float: right; }
+        .footer { margin-top: 40px; text-align: center; color: #52525b; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔍 Domain Scorer</h1>
+    <p class="subtitle">Analyse SEO, monétisation et risque des domaines expirés.</p>
+
+    <!-- Section unique -->
+    <div class="search-box">
+        <input type="text" id="domainInput" placeholder="ex: google.com, shopify.com, bitcoin.org" value="openai.com">
+        <button id="analyzeBtn">Analyser</button>
+    </div>
+
+    <div id="result">
+        <div class="loading">Entrez un domaine pour commencer.</div>
+    </div>
+
+    <!-- Section batch -->
+    <div class="batch-section">
+        <h3>📦 Analyse batch (un domaine par ligne)</h3>
+        <textarea id="batchInput" placeholder="google.com&#10;openai.com&#10;shopify.com">google.com
+openai.com
+shopify.com
+bitcoin.org</textarea>
+        <button id="batchBtn" class="batch-btn">Analyser tout</button>
+        <div id="batchResult" class="batch-results"></div>
+    </div>
+
+    <div class="footer">API locale sur http://localhost:8000 • Pour une utilisation professionnelle, contactez-nous.</div>
+</div>
+
+<script>
+    const API_BASE = "http://localhost:8000";
+
+    document.getElementById('analyzeBtn').addEventListener('click', analyzeSingle);
+    document.getElementById('domainInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') analyzeSingle(); });
+    document.getElementById('batchBtn').addEventListener('click', analyzeBatch);
+
+    async function analyzeSingle() {
+        const domain = document.getElementById('domainInput').value.trim();
+        if (!domain) return alert('Veuillez entrer un domaine.');
+        const btn = document.getElementById('analyzeBtn');
+        const resultDiv = document.getElementById('result');
+
+        btn.disabled = true;
+        resultDiv.innerHTML = '<div class="loading">⏳ Analyse en cours...</div>';
+
+        try {
+            const resp = await fetch(`${API_BASE}/score?domain=${encodeURIComponent(domain)}`);
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                resultDiv.innerHTML = `<div class="error">❌ Erreur ${resp.status}: ${data.detail || 'Domaine invalide'}</div>`;
+                return;
+            }
+
+            const badgeColor = data.danger_level === 'GREEN' ? 'badge-green' : data.danger_level === 'YELLOW' ? 'badge-yellow' : 'badge-red';
+            resultDiv.innerHTML = `
+                <div class="card">
+                    <div class="domain-name">
+                        ${data.domain}
+                        <span class="badge ${badgeColor}">${data.danger_level}</span>
+                    </div>
+                    <div class="scores-grid">
+                        <div class="score-item"><div class="score-label">SEO Score</div><div class="score-value">${data.seo_score}</div></div>
+                        <div class="score-item"><div class="score-label">Monétisation</div><div class="score-value">${data.monetization_score}</div></div>
+                    </div>
+                    <div style="margin-top: 8px; color: #a1a1aa; font-size: 14px;">
+                        <strong>Raisons :</strong> ${data.danger_reasons.join(', ')}
+                    </div>
+                    <div class="raw-data">
+                        📊 Âge: ${data.raw_data.whois_age_days || '?'} jours | DR: ${data.raw_data.ahrefs_dr || '?'} | Archive: ${data.raw_data.archive_snapshot_count || '?'} snapshots
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            resultDiv.innerHTML = `<div class="error">❌ Impossible de contacter l'API. Assurez-vous que le serveur tourne sur ${API_BASE}</div>`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function analyzeBatch() {
+        const text = document.getElementById('batchInput').value;
+        const domains = text.split('\n').map(d => d.trim()).filter(d => d);
+        if (domains.length === 0) return alert('Entrez au moins un domaine.');
+
+        const btn = document.getElementById('batchBtn');
+        const resultDiv = document.getElementById('batchResult');
+        btn.disabled = true;
+        resultDiv.innerHTML = '<div class="loading">⏳ Analyse de ' + domains.length + ' domaines...</div>';
+
+        try {
+            const resp = await fetch(`${API_BASE}/batch-score`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domains: domains })
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                resultDiv.innerHTML = `<div class="error">❌ Erreur serveur: ${data.detail || 'Erreur inconnue'}</div>`;
+                return;
+            }
+
+            let html = '';
+            data.results.forEach(r => {
+                const badgeColor = r.danger_level === 'GREEN' ? '#4ade80' : r.danger_level === 'YELLOW' ? '#fbbf24' : '#f87171';
+                html += `
+                    <div class="batch-item" style="border-left-color: ${badgeColor};">
+                        <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}</span></div>
+                        <div>SEO: ${r.seo_score} | Mono: ${r.monetization_score}</div>
+                    </div>
+                `;
+            });
+            resultDiv.innerHTML = html;
+        } catch (e) {
+            resultDiv.innerHTML = `<div class="error">❌ Erreur réseau: ${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // Auto-analyze on load
+    window.addEventListener('load', analyzeSingle);
+</script>
+</body>
+</html>

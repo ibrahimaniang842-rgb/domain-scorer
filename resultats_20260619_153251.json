@@ -1,0 +1,342 @@
+[
+  {
+    "domaine": "google.com",
+    "status": "OK",
+    "seo_score": 79.28,
+    "monetization_score": 68.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "google.com",
+      "whois_age_days": 10504,
+      "ahrefs_dr": 99.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.06
+  },
+  {
+    "domaine": "facebook.com",
+    "status": "OK",
+    "seo_score": 80.0,
+    "monetization_score": 64.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "facebook.com",
+      "whois_age_days": 10674,
+      "ahrefs_dr": 100.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.07
+  },
+  {
+    "domaine": "amazon.com",
+    "status": "OK",
+    "seo_score": 77.13,
+    "monetization_score": 68.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "amazon.com",
+      "whois_age_days": 11553,
+      "ahrefs_dr": 96.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.09
+  },
+  {
+    "domaine": "shopify.com",
+    "status": "OK",
+    "seo_score": 77.13,
+    "monetization_score": 86.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "shopify.com",
+      "whois_age_days": 7770,
+      "ahrefs_dr": 96.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.04
+  },
+  {
+    "domaine": "bitcoin.org",
+    "status": "OK",
+    "seo_score": 72.17,
+    "monetization_score": 86.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "bitcoin.org",
+      "whois_age_days": 6514,
+      "ahrefs_dr": 89.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.04
+  },
+  {
+    "domaine": "openai.com",
+    "status": "OK",
+    "seo_score": 75.0,
+    "monetization_score": 88.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "openai.com",
+      "whois_age_days": 7090,
+      "ahrefs_dr": 93.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.08
+  },
+  {
+    "domaine": "microsoft.com",
+    "status": "OK",
+    "seo_score": 77.13,
+    "monetization_score": 62.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "microsoft.com",
+      "whois_age_days": 12832,
+      "ahrefs_dr": 96.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.06
+  },
+  {
+    "domaine": "netflix.com",
+    "status": "OK",
+    "seo_score": 74.29,
+    "monetization_score": 66.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "netflix.com",
+      "whois_age_days": 10447,
+      "ahrefs_dr": 92.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.04
+  },
+  {
+    "domaine": "twitter.com",
+    "status": "OK",
+    "seo_score": 64.56,
+    "monetization_score": 66.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "twitter.com",
+      "whois_age_days": null,
+      "ahrefs_dr": 98.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.05
+  },
+  {
+    "domaine": "instagram.com",
+    "status": "OK",
+    "seo_score": 80.0,
+    "monetization_score": 62.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "instagram.com",
+      "whois_age_days": 8050,
+      "ahrefs_dr": 100.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.06
+  },
+  {
+    "domaine": "youtube.com",
+    "status": "OK",
+    "seo_score": 79.28,
+    "monetization_score": 66.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "youtube.com",
+      "whois_age_days": 7794,
+      "ahrefs_dr": 99.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.04
+  },
+  {
+    "domaine": "wikipedia.org",
+    "status": "OK",
+    "seo_score": 77.85,
+    "monetization_score": 62.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "wikipedia.org",
+      "whois_age_days": 9288,
+      "ahrefs_dr": 97.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.08
+  },
+  {
+    "domaine": "github.com",
+    "status": "OK",
+    "seo_score": 77.85,
+    "monetization_score": 68.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "github.com",
+      "whois_age_days": 6827,
+      "ahrefs_dr": 97.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.08
+  },
+  {
+    "domaine": "stackoverflow.com",
+    "status": "OK",
+    "seo_score": 60.29,
+    "monetization_score": 54.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "stackoverflow.com",
+      "whois_age_days": null,
+      "ahrefs_dr": 92.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.04
+  },
+  {
+    "domaine": "reddit.com",
+    "status": "OK",
+    "seo_score": 76.42,
+    "monetization_score": 68.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "reddit.com",
+      "whois_age_days": 7720,
+      "ahrefs_dr": 95.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.05
+  },
+  {
+    "domaine": "ebay.com",
+    "status": "OK",
+    "seo_score": 75.0,
+    "monetization_score": 72.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "ebay.com",
+      "whois_age_days": 11277,
+      "ahrefs_dr": 93.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.09
+  },
+  {
+    "domaine": "yahoo.com",
+    "status": "OK",
+    "seo_score": 75.71,
+    "monetization_score": 70.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "yahoo.com",
+      "whois_age_days": 11475,
+      "ahrefs_dr": 94.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.1
+  },
+  {
+    "domaine": "bing.com",
+    "status": "OK",
+    "seo_score": 75.0,
+    "monetization_score": 72.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "bing.com",
+      "whois_age_days": 11099,
+      "ahrefs_dr": 93.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.05
+  },
+  {
+    "domaine": "duckduckgo.com",
+    "status": "OK",
+    "seo_score": 73.58,
+    "monetization_score": 60.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "duckduckgo.com",
+      "whois_age_days": 6794,
+      "ahrefs_dr": 91.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.09
+  },
+  {
+    "domaine": "spotify.com",
+    "status": "OK",
+    "seo_score": 76.42,
+    "monetization_score": 66.0,
+    "danger_level": "GREEN",
+    "danger_reasons": [
+      "Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"
+    ],
+    "raw": {
+      "domain": "spotify.com",
+      "whois_age_days": 7362,
+      "ahrefs_dr": 95.0,
+      "archive_snapshot_count": null
+    },
+    "temps": 12.03
+  }
+]
