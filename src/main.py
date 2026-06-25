@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 import re
 from urllib.parse import urlparse
 
@@ -44,9 +44,6 @@ class ScoreResponse(BaseModel):
 class BatchRequest(BaseModel):
     domains: List[str]
 
-class BatchResponse(BaseModel):
-    results: List[dict]
-
 # --- Endpoints ---
 @app.get("/health")
 async def health():
@@ -59,6 +56,7 @@ async def get_score(domain: str):
         raise HTTPException(status_code=400, detail="Domaine invalide")
     
     try:
+        # use_archive=True par défaut pour une analyse complète
         result = await score_domain(domain)
         return ScoreResponse(
             domain=result.domain,
@@ -72,7 +70,12 @@ async def get_score(domain: str):
         raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
 
 @app.post("/batch-score")
-async def batch_score(request: BatchRequest):
+async def batch_score(request: BatchRequest, deep_scan: bool = False):
+    """
+    Analyse batch de domaines.
+    deep_scan=False (par défaut) : Archive est désactivé pour plus de rapidité.
+    deep_scan=True : Archive est activé (plus lent mais plus complet).
+    """
     results = []
     for domain in request.domains:
         try:
@@ -87,7 +90,8 @@ async def batch_score(request: BatchRequest):
                     "raw_data": {}
                 })
                 continue
-            result = await score_domain(domain)
+            # Passage du paramètre use_archive selon deep_scan
+            result = await score_domain(domain, use_archive=deep_scan)
             results.append({
                 "domain": result.domain,
                 "seo_score": result.scores.seo,

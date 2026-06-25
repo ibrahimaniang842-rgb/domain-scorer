@@ -9,6 +9,8 @@ class RawData:
     whois_age_days: Optional[int] = None
     ahrefs_dr: Optional[float] = None
     archive_snapshot_count: Optional[int] = None
+    blacklist_status: Optional[str] = None      # "SAFE", "MALWARE", "SOCIAL_ENGINEERING", "UNKNOWN"
+    blacklist_reason: Optional[str] = None       # Explication si blacklisté
 
     def to_dict(self):
         return asdict(self)
@@ -23,7 +25,7 @@ class Scores:
 
 @dataclass
 class Danger:
-    level: str
+    level: str          # "GREEN", "YELLOW", "RED"
     reasons: List[str]
 
     def to_dict(self):

@@ -10,12 +10,21 @@ def compute_danger(raw: RawData) -> Danger:
     dr = raw.ahrefs_dr
     age = raw.whois_age_days
     archive = raw.archive_snapshot_count
+    
+    # --- RÈGLE PRIORITAIRE ABSOLUE : BLACKLIST ---
+    if raw.blacklist_status is not None and raw.blacklist_status != "SAFE" and raw.blacklist_status != "UNKNOWN":
+        return Danger(
+            "RED",
+            [f"⚠️ DOMAINE BLACKLISTÉ : {raw.blacklist_reason or raw.blacklist_status}"]
+        )
 
-    # OVERRIDE : DR >= 50 => GREEN
+    # --- RÈGLE D'OVERRIDE DR (conditionnel) ---
     if dr is not None and dr >= HIGH_DR_OVERRIDE:
-        return Danger("GREEN", ["Haute autorité SEO (DR ≥ 50) - signaux négatifs ignorés"])
+        if (age is not None and age > 365) or (archive is not None and archive > 100):
+            return Danger("GREEN", ["Haute autorité SEO (DR ≥ 50) avec historique de confiance"])
+        # Sinon, on continue l'évaluation
 
-    # Signaux faibles
+    # --- SIGNAUX FAIBLES ---
     low_dr = (dr is None or dr < LOW_DR_THRESHOLD)
     young = (age is not None and age < YOUNG_AGE_DAYS)
     low_archive = (archive is None or archive < LOW_ARCHIVE_COUNT)

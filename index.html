@@ -111,8 +111,9 @@ bitcoin.org</textarea>
                         <strong>Raisons :</strong> ${data.danger_reasons.join(', ')}
                     </div>
                     <div class="raw-data">
-                        📊 Âge: ${data.raw_data.whois_age_days || '?'} jours | DR: ${data.raw_data.ahrefs_dr || '?'} | Archive: ${data.raw_data.archive_snapshot_count || '?'} snapshots
-                    </div>
+    📊 Âge: ${data.raw_data.whois_age_days || '?'} jours | DR: ${data.raw_data.ahrefs_dr || '?'} | Archive: ${data.raw_data.archive_snapshot_count || '?'} snapshots
+    ${data.raw_data.blacklist_status ? `<br>🛡️ Blacklist: <strong>${data.raw_data.blacklist_status}</strong> ${data.raw_data.blacklist_status !== 'SAFE' && data.raw_data.blacklist_status !== 'UNKNOWN' ? '⚠️' : '✅'}` : ''}
+</div>
                 </div>
             `;
         } catch (e) {
