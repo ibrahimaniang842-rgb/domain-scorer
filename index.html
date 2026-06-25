@@ -40,6 +40,9 @@
         .batch-item .b-domain { font-weight: 600; }
         .batch-item .b-seo { float: right; }
         .footer { margin-top: 40px; text-align: center; color: #52525b; font-size: 14px; }
+        .blacklist-safe { color: #4ade80; }
+        .blacklist-danger { color: #f87171; }
+        .blacklist-unknown { color: #fbbf24; }
     </style>
 </head>
 <body>
@@ -68,7 +71,7 @@ bitcoin.org</textarea>
         <div id="batchResult" class="batch-results"></div>
     </div>
 
-    <div class="footer">API locale sur http://localhost:8000 • Pour une utilisation professionnelle, contactez-nous.</div>
+    <div class="footer">API hébergée sur Render • Pour une utilisation professionnelle, contactez-nous.</div>
 </div>
 
 <script>
@@ -97,6 +100,21 @@ bitcoin.org</textarea>
             }
 
             const badgeColor = data.danger_level === 'GREEN' ? 'badge-green' : data.danger_level === 'YELLOW' ? 'badge-yellow' : 'badge-red';
+            const raw = data.raw_data;
+
+            // Statut blacklist
+            let blacklistHtml = '';
+            if (raw.blacklist_status) {
+                const status = raw.blacklist_status;
+                const isSafe = status === 'SAFE';
+                const isUnknown = status === 'UNKNOWN';
+                const isBlacklisted = !isSafe && !isUnknown;
+                const icon = isBlacklisted ? '🚫' : isSafe ? '✅' : '❓';
+                const className = isBlacklisted ? 'blacklist-danger' : isSafe ? 'blacklist-safe' : 'blacklist-unknown';
+                blacklistHtml = `<br>🛡️ Blacklist: <strong class="${className}">${icon} ${status}</strong>`;
+                if (raw.blacklist_reason) blacklistHtml += ` <span style="font-size:13px; color:#a1a1aa;">(${raw.blacklist_reason})</span>`;
+            }
+
             resultDiv.innerHTML = `
                 <div class="card">
                     <div class="domain-name">
@@ -111,9 +129,9 @@ bitcoin.org</textarea>
                         <strong>Raisons :</strong> ${data.danger_reasons.join(', ')}
                     </div>
                     <div class="raw-data">
-    📊 Âge: ${data.raw_data.whois_age_days || '?'} jours | DR: ${data.raw_data.ahrefs_dr || '?'} | Archive: ${data.raw_data.archive_snapshot_count || '?'} snapshots
-    ${data.raw_data.blacklist_status ? `<br>🛡️ Blacklist: <strong>${data.raw_data.blacklist_status}</strong> ${data.raw_data.blacklist_status !== 'SAFE' && data.raw_data.blacklist_status !== 'UNKNOWN' ? '⚠️' : '✅'}` : ''}
-</div>
+                        📊 Âge: ${raw.whois_age_days || '?'} jours | DR: ${raw.ahrefs_dr || '?'} | Archive: ${raw.archive_snapshot_count || '?'} snapshots
+                        ${blacklistHtml}
+                    </div>
                 </div>
             `;
         } catch (e) {
@@ -149,9 +167,17 @@ bitcoin.org</textarea>
             let html = '';
             data.results.forEach(r => {
                 const badgeColor = r.danger_level === 'GREEN' ? '#4ade80' : r.danger_level === 'YELLOW' ? '#fbbf24' : '#f87171';
+                const raw = r.raw_data || {};
+                let blacklistBadge = '';
+                if (raw.blacklist_status) {
+                    const status = raw.blacklist_status;
+                    const isSafe = status === 'SAFE';
+                    const isBlacklisted = !isSafe && status !== 'UNKNOWN';
+                    blacklistBadge = isBlacklisted ? ' 🚫' : isSafe ? ' ✅' : ' ❓';
+                }
                 html += `
                     <div class="batch-item" style="border-left-color: ${badgeColor};">
-                        <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}</span></div>
+                        <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}${blacklistBadge}</span></div>
                         <div>SEO: ${r.seo_score} | Mono: ${r.monetization_score}</div>
                     </div>
                 `;
