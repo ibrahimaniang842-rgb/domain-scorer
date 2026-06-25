@@ -1,6 +1,5 @@
 # src/fetchers/blacklist_fetcher.py
 import aiohttp
-import json
 from typing import Optional
 
 # Ta clé API Google Safe Browsing
@@ -11,7 +10,7 @@ async def get_blacklist_status(domain: str, session: aiohttp.ClientSession) -> d
     Vérifie si un domaine est blacklisté par Google Safe Browsing.
     Retourne : {"status": "SAFE"} ou {"status": "MALWARE", "reason": "..."}
     """
-    # Vérification : si la clé est vide ou égale au placeholder, on ne fait pas l'appel
+    # Condition corrigée : on vérifie si la clé est vide ou égale au placeholder
     if GOOGLE_SAFE_BROWSING_API_KEY == "" or GOOGLE_SAFE_BROWSING_API_KEY == "YOUR_API_KEY_HERE":
         return {"status": "UNKNOWN", "reason": "Clé API manquante"}
 
@@ -34,34 +33,21 @@ async def get_blacklist_status(domain: str, session: aiohttp.ClientSession) -> d
     }
 
     try:
-        # Timeout augmenté à 10 secondes pour plus de tolérance
         async with session.post(url, json=payload, timeout=10.0) as resp:
-            # Log du statut HTTP (visible dans les logs Render)
             print(f"[BLACKLIST] {domain} -> status {resp.status}")
-            
             if resp.status != 200:
-                # Erreur API ou quota dépassé → on ne bloque pas le pipeline
                 return {"status": "UNKNOWN", "reason": f"Erreur HTTP {resp.status}"}
-            
             data = await resp.json()
-            
-            # Si la réponse ne contient pas "matches", le domaine est SAFE
             if "matches" not in data or not data["matches"]:
                 return {"status": "SAFE", "reason": "Aucune menace détectée"}
-            
-            # On extrait le premier type de menace trouvé
             threat_type = data["matches"][0].get("threatType", "UNKNOWN")
             return {
                 "status": threat_type,
                 "reason": f"Blacklisté par Google Safe Browsing ({threat_type})"
             }
-            
     except TimeoutError:
         print(f"[BLACKLIST] {domain} -> TIMEOUT")
         return {"status": "UNKNOWN", "reason": "Timeout de la requête Safe Browsing"}
-    except aiohttp.ClientError as e:
-        print(f"[BLACKLIST] {domain} -> ERREUR CLIENT: {e}")
-        return {"status": "UNKNOWN", "reason": "Erreur de connexion à Safe Browsing"}
     except Exception as e:
-        print(f"[BLACKLIST] {domain} -> ERREUR INATTENDUE: {e}")
-        return {"status": "UNKNOWN", "reason": f"Erreur inattendue: {str(e)}"}
+        print(f"[BLACKLIST] {domain} -> ERREUR: {e}")
+        return {"status": "UNKNOWN", "reason": f"Erreur: {str(e)}"}
