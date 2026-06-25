@@ -12,7 +12,7 @@ async def get_blacklist_status(domain: str, session: aiohttp.ClientSession) -> d
     Vérifie si un domaine est blacklisté par Google Safe Browsing.
     Retourne : {"status": "SAFE"} ou {"status": "MALWARE", "reason": "..."}
     """
-    if GOOGLE_SAFE_BROWSING_API_KEY == "YOUR_API_KEY_HERE":
+    if GOOGLE_SAFE_BROWSING_API_KEY == "AIzaSyB1-RUCkQd10_TdNc3-uF2P6ozR4f9Ktpk":
         # Pas de clé configurée → on considère comme SAFE (neutre)
         return {"status": "UNKNOWN", "reason": "Clé API manquante"}
 
