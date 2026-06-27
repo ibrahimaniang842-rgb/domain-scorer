@@ -43,7 +43,14 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
         age = results[0]
         dr = results[1]
         blacklist_data = results[2] if len(results) > 2 else None
-        archive = results[3] if len(results) > 3 else None
+
+        # Gestion du résultat Archive
+        archive_result = results[3] if len(results) > 3 else None
+        if archive_result and isinstance(archive_result, tuple):
+            archive_count, archive_status = archive_result
+        else:
+            archive_count = None
+            archive_status = "ERROR"
 
         if blacklist_data and isinstance(blacklist_data, dict):
             blacklist_status = blacklist_data.get("status")
@@ -56,7 +63,8 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
             domain=domain,
             whois_age_days=age,
             ahrefs_dr=dr,
-            archive_snapshot_count=archive,
+            archive_snapshot_count=archive_count,
+            archive_status=archive_status,
             blacklist_status=blacklist_status,
             blacklist_reason=blacklist_reason
         )

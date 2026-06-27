@@ -9,6 +9,7 @@ class RawData:
     whois_age_days: Optional[int] = None
     ahrefs_dr: Optional[float] = None
     archive_snapshot_count: Optional[int] = None
+    archive_status: Optional[str] = None   # "OK", "NO_DATA", "TIMEOUT", "ERROR"
     blacklist_status: Optional[str] = None
     blacklist_reason: Optional[str] = None
 
