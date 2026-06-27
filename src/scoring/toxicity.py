@@ -19,8 +19,8 @@ def compute_toxicity(raw: RawData) -> dict:
         score += 10
         reasons.append("Historique Archive très limité")
     elif archive is None:
-        score += 10
-        reasons.append("Historique Archive inconnu")
+    score += 5
+    reasons.append("Historique Archive indisponible (timeout) - pénalité mineure")
     if dr is not None and age is not None and dr >= 50 and age < 180:
         score += 30
         reasons.append("DR élevé sur domaine récent - suspect")
