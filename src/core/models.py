@@ -8,12 +8,14 @@ class RawData:
     domain: str
     whois_age_days: Optional[int] = None
     ahrefs_dr: Optional[float] = None
-    archive_snapshot_count: Optional[int] = None
-    archive_status: Optional[str] = None          # "OK", "NO_DATA", "TIMEOUT", "ERROR"
+    archive_exists: Optional[bool] = None
+    archive_first_date: Optional[str] = None
+    archive_last_date: Optional[str] = None
+    archive_status: Optional[str] = None
     blacklist_status: Optional[str] = None
     blacklist_reason: Optional[str] = None
-    niche_history: Optional[list] = None           # NOUVEAU V1.2
-    niche_shift: Optional[dict] = None             # NOUVEAU V1.2
+    niche_history: Optional[list] = None
+    niche_shift: Optional[dict] = None
 
     def to_dict(self):
         return asdict(self)

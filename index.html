@@ -46,8 +46,6 @@
         .blacklist-safe { color: #4ade80; }
         .blacklist-danger { color: #f87171; }
         .blacklist-unknown { color: #fbbf24; }
-        .niche-shift-detected { color: #f87171; font-weight: 600; }
-        .niche-shift-stable { color: #4ade80; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -76,6 +74,11 @@ bitcoin.org</textarea>
     document.getElementById('domainInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') analyzeSingle(); });
     document.getElementById('batchBtn').addEventListener('click', analyzeBatch);
 
+    function formatDate(ts) {
+        if (!ts || ts.length < 8) return ts;
+        return ts.slice(0, 4) + '-' + ts.slice(4, 6) + '-' + ts.slice(6, 8);
+    }
+
     async function analyzeSingle() {
         const domain = document.getElementById('domainInput').value.trim();
         if (!domain) return alert('Veuillez entrer un domaine.');
@@ -97,6 +100,21 @@ bitcoin.org</textarea>
             const toxIcon = tox.level === 'SAFE' ? '✅' : tox.level === 'SUSPICIOUS' ? '⚠️' : tox.level === 'TOXIC' ? '🚫' : '❓';
             const toxClass = tox.level === 'SAFE' ? 'toxicity-safe' : tox.level === 'SUSPICIOUS' ? 'toxicity-suspicious' : 'toxicity-toxic';
 
+            // --- Affichage Archive (nouveau format) ---
+            let archiveStatus = '❓ Inconnu';
+            if (raw.archive_status === 'OK' && raw.archive_exists) {
+                let first = raw.archive_first_date ? formatDate(raw.archive_first_date) : 'début';
+                let last = raw.archive_last_date ? formatDate(raw.archive_last_date) : 'fin';
+                archiveStatus = `✅ Archives vérifiées (${first} → ${last})`;
+            } else if (raw.archive_status === 'TIMEOUT') {
+                archiveStatus = `⏳ Archives non disponibles (timeout)`;
+            } else if (raw.archive_status === 'NO_DATA') {
+                archiveStatus = `📭 Aucune archive trouvée`;
+            } else if (raw.archive_status === 'ERROR') {
+                archiveStatus = `❌ Erreur de récupération`;
+            }
+
+            // --- Security Check ---
             let blacklistHtml = '';
             if (raw.blacklist_status) {
                 const status = raw.blacklist_status;
@@ -109,28 +127,22 @@ bitcoin.org</textarea>
                 if (raw.blacklist_reason) blacklistHtml += ` <span style="font-size:13px; color:#a1a1aa;">(${raw.blacklist_reason})</span>`;
             }
 
-            // --- AFFICHAGE NICHE V1.2 ---
+            // --- Niche History ---
             let nicheHtml = '';
             const nicheShift = data.niche_shift;
             if (nicheShift && nicheShift.history && nicheShift.history.length > 0) {
                 const history = nicheShift.history;
-                const shiftDetected = nicheShift.shift_detected || false;
+                const shiftDetected = nicheShift.shift_detected;
                 const shiftMsg = nicheShift.shift_message || '';
-                const confidence = nicheShift.confidence || 0;
                 const icon = shiftDetected ? '🚨' : '📊';
                 const color = shiftDetected ? '#f87171' : '#4ade80';
-                const className = shiftDetected ? 'niche-shift-detected' : 'niche-shift-stable';
-                
-                let historyStr = history.map(h => `${h.year || h.timestamp?.slice(0,4) || '??'} (${h.niche || '?'})`).join(' → ');
-                nicheHtml = `<br>📜 Historique des niches: <strong class="${className}">${icon} ${historyStr}</strong>`;
+                let historyStr = history.map(h => `${h.year} (${h.niche})`).join(' → ');
+                nicheHtml = `<br>📜 Historique des niches: <strong style="color:${color};">${icon} ${historyStr}</strong>`;
                 if (shiftDetected) {
                     nicheHtml += ` <span style="color:#f87171;">⚠️ ${shiftMsg}</span>`;
                 }
-                if (confidence > 50) {
-                    nicheHtml += ` <span style="font-size:13px; color:#a1a1aa;">(confiance: ${confidence}%)</span>`;
-                }
             } else if (nicheShift && nicheShift.shift_message) {
-                nicheHtml = `<br>📜 Historique des niches: <span style="color:#a1a1aa;">${nicheShift.shift_message}</span>`;
+                nicheHtml = `<br>📜 Historique des niches: ${nicheShift.shift_message}`;
             }
 
             resultDiv.innerHTML = `
@@ -151,7 +163,8 @@ bitcoin.org</textarea>
                         <strong>Raisons du danger :</strong> ${data.danger_reasons.join(', ')}
                     </div>
                     <div class="raw-data">
-                        📊 Âge: ${raw.whois_age_days || '?'} jours | DR: ${raw.ahrefs_dr || '?'} | Archive: ${raw.archive_snapshot_count || '?'} snapshots
+                        📊 Âge: ${raw.whois_age_days || '?'} jours | DR: ${raw.ahrefs_dr || '?'} <br>
+                        🗄️ Archive: ${archiveStatus}
                         ${blacklistHtml}
                         ${nicheHtml}
                     </div>
@@ -196,14 +209,9 @@ bitcoin.org</textarea>
                     const isBlacklisted = !isSafe && status !== 'UNKNOWN';
                     blacklistBadge = isBlacklisted ? ' 🚫' : isSafe ? ' ✅' : ' ❓';
                 }
-                let nicheBadge = '';
-                const nicheShift = r.niche_shift;
-                if (nicheShift && nicheShift.shift_detected) {
-                    nicheBadge = ' 🔄';
-                }
                 html += `
                     <div class="batch-item" style="border-left-color: ${badgeColor};">
-                        <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}${blacklistBadge}${nicheBadge}</span></div>
+                        <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}${blacklistBadge}</span></div>
                         <div>SEO: ${r.seo_score} | Mono: ${r.monetization_score}</div>
                         <div style="font-size:12px; color:#a1a1aa;">Toxicity: ${toxIcon} ${tox.score}</div>
                     </div>

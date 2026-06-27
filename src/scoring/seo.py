@@ -13,13 +13,7 @@ def compute_seo_score(raw: RawData) -> float:
     else:
         age_score = 0.3
 
-    if raw.archive_snapshot_count is not None:
-        archive_score = min(raw.archive_snapshot_count / 1000.0, 1.0)
-        seo_raw = 0.60 * dr_score + 0.20 * age_score + 0.20 * archive_score
-    else:
-        # Archive indisponible : redistribution + plafond à 95%
-        seo_raw = 0.70 * dr_score + 0.20 * age_score
-        seo_raw = min(seo_raw, 0.95)
-
+    # Archive n'est plus utilisé dans le score SEO
+    seo_raw = 0.75 * dr_score + 0.25 * age_score
     seo_normalized = min(max(seo_raw, 0.0), 1.0)
     return round(seo_normalized * 100, 2)

@@ -5,7 +5,7 @@ import logging
 from src.core.models import RawData, Scores, Danger, Toxicity, Result
 from src.fetchers.whois_fetcher import get_whois_age
 from src.fetchers.ahrefs_fetcher import get_ahrefs_dr
-from src.fetchers.archive_fetcher import get_archive_snapshot_count
+from src.fetchers.archive_fetcher import get_archive_status
 from src.fetchers.blacklist_fetcher import get_blacklist_status
 from src.fetchers.wayback_content_fetcher import get_wayback_snapshots
 from src.scoring.seo import compute_seo_score
@@ -37,7 +37,7 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
             safe_fetch(get_blacklist_status(domain, session), "blacklist")
         ]
         if use_archive:
-            tasks.append(safe_fetch(get_archive_snapshot_count(domain, session), "archive"))
+            tasks.append(safe_fetch(get_archive_status(domain, session), "archive"))
         else:
             tasks.append(asyncio.sleep(0, result=None))
 
@@ -46,12 +46,17 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
         dr = results[1]
         blacklist_data = results[2] if len(results) > 2 else None
 
-        # Gestion du résultat Archive
-        archive_result = results[3] if len(results) > 3 else None
-        if archive_result and isinstance(archive_result, tuple):
-            archive_count, archive_status = archive_result
+        # --- Gestion du nouveau format Archive ---
+        archive_data = results[3] if len(results) > 3 else None
+        if archive_data and isinstance(archive_data, dict):
+            archive_exists = archive_data.get("exists")
+            archive_first_date = archive_data.get("first_snapshot")
+            archive_last_date = archive_data.get("last_snapshot")
+            archive_status = archive_data.get("status")
         else:
-            archive_count = None
+            archive_exists = None
+            archive_first_date = None
+            archive_last_date = None
             archive_status = "ERROR"
 
         if blacklist_data and isinstance(blacklist_data, dict):
@@ -61,7 +66,7 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
             blacklist_status = None
             blacklist_reason = None
 
-        # --- NOUVEAU V1.2 : Analyse sémantique Wayback ---
+        # --- Analyse sémantique Wayback (V1.2) ---
         niche_history = None
         niche_shift = None
         if use_archive:
@@ -75,13 +80,14 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
                     "shift_message": "Historique insuffisant pour analyser la niche",
                     "confidence": 0
                 }
-        # --- FIN NOUVEAU V1.2 ---
 
         raw = RawData(
             domain=domain,
             whois_age_days=age,
             ahrefs_dr=dr,
-            archive_snapshot_count=archive_count,
+            archive_exists=archive_exists,
+            archive_first_date=archive_first_date,
+            archive_last_date=archive_last_date,
             archive_status=archive_status,
             blacklist_status=blacklist_status,
             blacklist_reason=blacklist_reason,
