@@ -10,21 +10,34 @@ def compute_danger(raw: RawData) -> Danger:
     dr = raw.ahrefs_dr
     age = raw.whois_age_days
     archive = raw.archive_snapshot_count
-    
-    # --- RÈGLE PRIORITAIRE ABSOLUE : BLACKLIST ---
-    if raw.blacklist_status is not None and raw.blacklist_status != "SAFE" and raw.blacklist_status != "UNKNOWN":
+    archive_status = raw.archive_status
+    blacklist = raw.blacklist_status
+
+    # --- 1. RÈGLE PRIORITAIRE : BLACKLIST ---
+    if blacklist is not None and blacklist != "SAFE" and blacklist != "UNKNOWN":
         return Danger(
             "RED",
-            [f"⚠️ DOMAINE BLACKLISTÉ : {raw.blacklist_reason or raw.blacklist_status}"]
+            [f"⚠️ DOMAINE BLACKLISTÉ : {raw.blacklist_reason or blacklist}"]
         )
 
-    # --- RÈGLE D'OVERRIDE DR (conditionnel) ---
+    # --- 2. RÈGLE D'OVERRIDE DR (conditionnel) ---
     if dr is not None and dr >= HIGH_DR_OVERRIDE:
         if (age is not None and age > 365) or (archive is not None and archive > 100):
             return Danger("GREEN", ["Haute autorité SEO (DR ≥ 50) avec historique de confiance"])
         # Sinon, on continue l'évaluation
 
-    # --- SIGNAUX FAIBLES ---
+    # --- 3. NOUVEAU : Archive inconnu sur domaine ancien avec autorité (YELLOW) ---
+    # Si l'archive est vide (NO_DATA) et que le domaine est ancien (> 10 ans) et a un DR significatif (> 30)
+    if (archive_status == "NO_DATA" or (archive_status == "LIGHT" and (archive is None or archive < 2))) and age is not None and age > 3650 and dr is not None and dr >= 30:
+        return Danger(
+            "YELLOW",
+            [
+                "⚠️ Archive inconnu sur domaine ancien (vérification recommandée)",
+                "Le domaine est ancien mais nous ne pouvons pas vérifier son historique."
+            ]
+        )
+
+    # --- 4. SIGNAUX FAIBLES ---
     low_dr = (dr is None or dr < LOW_DR_THRESHOLD)
     young = (age is not None and age < YOUNG_AGE_DAYS)
     low_archive = (archive is None or archive < LOW_ARCHIVE_COUNT)
