@@ -1,35 +1,41 @@
 # src/scoring/niche_analyzer.py
 import re
 from bs4 import BeautifulSoup
+import logging
 
-# Mots-clés par niche (extensibles)
+logger = logging.getLogger(__name__)
+
 NICHE_KEYWORDS = {
-    "automobile": ["voiture", "auto", "moteur", "garage", "car", "toyota", "ford", "bmw"],
-    "casino": ["casino", "poker", "betting", "gambling", "slot", "jackpot", "blackjack"],
-    "adult": ["porn", "xxx", "adult", "sex", "escort", "nude"],
-    "pharma": ["viagra", "cialis", "levitra", "pharmacy", "drug", "med", "sildenafil"],
-    "crypto": ["bitcoin", "ethereum", "crypto", "wallet", "blockchain", "coin"],
-    "health": ["health", "fitness", "wellness", "medical", "doctor", "clinic"],
-    "finance": ["finance", "invest", "trade", "forex", "bank", "loan", "credit"],
-    "tech": ["tech", "software", "app", "mobile", "cloud", "ai", "data"],
-    "real_estate": ["immobilier", "real estate", "property", "house", "apartment", "rent"],
-    "ecommerce": ["shop", "store", "buy", "sell", "cart", "product", "deal"],
-    "blog": ["blog", "news", "article", "post", "media", "press"],
-    "gaming": ["game", "play", "gaming", "esport", "stream"]
+    "automobile": ["voiture", "auto", "moteur", "garage", "car", "toyota", "ford", "bmw", "renault", "peugeot"],
+    "casino": ["casino", "poker", "betting", "gambling", "slot", "jackpot", "blackjack", "roulette"],
+    "adult": ["porn", "xxx", "adult", "sex", "escort", "nude", "cam", "live"],
+    "pharma": ["viagra", "cialis", "levitra", "pharmacy", "drug", "med", "sildenafil", "tadalafil"],
+    "crypto": ["bitcoin", "ethereum", "crypto", "wallet", "blockchain", "coin", "token"],
+    "health": ["health", "fitness", "wellness", "medical", "doctor", "clinic", "hospital"],
+    "finance": ["finance", "invest", "trade", "forex", "bank", "loan", "credit", "mortgage"],
+    "tech": ["tech", "software", "app", "mobile", "cloud", "ai", "data", "digital"],
+    "real_estate": ["immobilier", "real estate", "property", "house", "apartment", "rent", "sale"],
+    "ecommerce": ["shop", "store", "buy", "sell", "cart", "product", "deal", "discount"],
+    "blog": ["blog", "news", "article", "post", "media", "press", "journal"],
+    "gaming": ["game", "play", "gaming", "esport", "stream", "twitch", "youtube"]
 }
 
 def _extract_text(html: str) -> str:
     try:
         soup = BeautifulSoup(html, 'html.parser')
-        # Supprimer script, style, meta
-        for tag in soup(["script", "style", "meta", "noscript"]):
+        for tag in soup(["script", "style", "meta", "noscript", "link"]):
             tag.decompose()
-        return soup.get_text(separator=' ', strip=True).lower()
-    except:
+        text = soup.get_text(separator=' ', strip=True)
+        # Nettoyer les espaces multiples
+        text = re.sub(r'\s+', ' ', text)
+        return text.lower()
+    except Exception as e:
+        logger.warning(f"[NICHE] Erreur extraction HTML: {e}")
         return ""
 
 def _detect_niche(text: str) -> str:
-    """Retourne la niche dominante ou 'unknown'."""
+    if len(text) < 100:  # Texte trop court
+        return "unknown"
     scores = {}
     for niche, keywords in NICHE_KEYWORDS.items():
         count = sum(1 for kw in keywords if kw in text)
@@ -41,15 +47,6 @@ def _detect_niche(text: str) -> str:
     return max(scores, key=scores.get)
 
 def analyze_niche_history(snapshots: list) -> dict:
-    """
-    Entrée : liste de snapshots (timestamp, html)
-    Sortie : {
-        "history": [{"timestamp": "...", "niche": "..."}],
-        "shift_detected": bool,
-        "shift_message": str,
-        "confidence": int (0-100)
-    }
-    """
     if not snapshots or len(snapshots) < 2:
         return {
             "history": [],
@@ -60,9 +57,11 @@ def analyze_niche_history(snapshots: list) -> dict:
 
     history = []
     for snap in snapshots:
-        text = _extract_text(snap.get("html", ""))
+        html = snap.get("html", "")
+        if not html or len(html) < 500:
+            continue
+        text = _extract_text(html)
         niche = _detect_niche(text)
-        # Formatage de la date pour l'affichage
         ts = snap.get("timestamp", "")
         year = ts[:4] if len(ts) >= 4 else "??"
         history.append({
@@ -71,7 +70,15 @@ def analyze_niche_history(snapshots: list) -> dict:
             "niche": niche if niche != "unknown" else "Non détectée"
         })
 
-    # Détection de rupture : comparer la première et la dernière niche
+    if len(history) < 2:
+        return {
+            "history": history,
+            "shift_detected": False,
+            "shift_message": "Historique insuffisant pour analyser la niche",
+            "confidence": 0
+        }
+
+    # Détection de rupture
     first = history[0]["niche"]
     last = history[-1]["niche"]
     shift_detected = (first != last and first != "Non détectée" and last != "Non détectée")
@@ -81,7 +88,6 @@ def analyze_niche_history(snapshots: list) -> dict:
     if shift_detected:
         shift_message = f"⚠️ Changement de niche détecté : {first} → {last}"
         confidence = 80
-        # Bonus si la niche est toxique
         toxic = ["casino", "adult", "pharma"]
         if last in toxic:
             confidence = 95
