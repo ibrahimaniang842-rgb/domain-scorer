@@ -9,8 +9,10 @@ LOW_ARCHIVE_COUNT = 10
 def compute_danger(raw: RawData) -> Danger:
     dr = raw.ahrefs_dr
     age = raw.whois_age_days
-    archive = raw.archive_snapshot_count
+    archive_exists = raw.archive_exists
     archive_status = raw.archive_status
+    archive_first_date = raw.archive_first_date
+    archive_last_date = raw.archive_last_date
     blacklist = raw.blacklist_status
 
     # --- 1. RÈGLE PRIORITAIRE : BLACKLIST ---
@@ -21,14 +23,16 @@ def compute_danger(raw: RawData) -> Danger:
         )
 
     # --- 2. RÈGLE D'OVERRIDE DR (conditionnel) ---
+    # On considère qu'il y a un historique si archive_exists True et au moins une date
+    has_history = archive_exists and archive_first_date is not None
     if dr is not None and dr >= HIGH_DR_OVERRIDE:
-        if (age is not None and age > 365) or (archive is not None and archive > 100):
+        if (age is not None and age > 365) or has_history:
             return Danger("GREEN", ["Haute autorité SEO (DR ≥ 50) avec historique de confiance"])
         # Sinon, on continue l'évaluation
 
-    # --- 3. NOUVEAU : Archive inconnu sur domaine ancien avec autorité (YELLOW) ---
+    # --- 3. Archive inconnu sur domaine ancien avec autorité (YELLOW) ---
     # Si l'archive est vide (NO_DATA) et que le domaine est ancien (> 10 ans) et a un DR significatif (> 30)
-    if (archive_status == "NO_DATA" or (archive_status == "LIGHT" and (archive is None or archive < 2))) and age is not None and age > 3650 and dr is not None and dr >= 30:
+    if (archive_status == "NO_DATA" or archive_status == "TIMEOUT") and age is not None and age > 3650 and dr is not None and dr >= 30:
         return Danger(
             "YELLOW",
             [
@@ -40,7 +44,7 @@ def compute_danger(raw: RawData) -> Danger:
     # --- 4. SIGNAUX FAIBLES ---
     low_dr = (dr is None or dr < LOW_DR_THRESHOLD)
     young = (age is not None and age < YOUNG_AGE_DAYS)
-    low_archive = (archive is None or archive < LOW_ARCHIVE_COUNT)
+    low_archive = (not archive_exists) or (archive_status in ["NO_DATA", "TIMEOUT", "ERROR"])
 
     weak_signals = sum([low_dr, young, low_archive])
 
