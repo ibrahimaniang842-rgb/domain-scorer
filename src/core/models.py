@@ -9,8 +9,8 @@ class RawData:
     whois_age_days: Optional[int] = None
     ahrefs_dr: Optional[float] = None
     archive_snapshot_count: Optional[int] = None
-    blacklist_status: Optional[str] = None      # "SAFE", "MALWARE", "SOCIAL_ENGINEERING", "UNKNOWN"
-    blacklist_reason: Optional[str] = None       # Explication si blacklisté
+    blacklist_status: Optional[str] = None
+    blacklist_reason: Optional[str] = None
 
     def to_dict(self):
         return asdict(self)
@@ -25,7 +25,16 @@ class Scores:
 
 @dataclass
 class Danger:
-    level: str          # "GREEN", "YELLOW", "RED"
+    level: str
+    reasons: List[str]
+
+    def to_dict(self):
+        return asdict(self)
+
+@dataclass
+class Toxicity:
+    score: int
+    level: str
     reasons: List[str]
 
     def to_dict(self):
@@ -37,6 +46,7 @@ class Result:
     raw: RawData
     scores: Scores
     danger: Danger
+    toxicity: Toxicity
     explanation: Optional[str] = None
 
     def to_dict(self):
@@ -45,6 +55,7 @@ class Result:
             "raw": self.raw.to_dict(),
             "scores": self.scores.to_dict(),
             "danger": self.danger.to_dict(),
+            "toxicity": self.toxicity.to_dict(),
             "explanation": self.explanation
         }
 
@@ -59,5 +70,6 @@ class Result:
             raw=RawData(**d["raw"]),
             scores=Scores(**d["scores"]),
             danger=Danger(**d["danger"]),
+            toxicity=Toxicity(**d["toxicity"]),
             explanation=d.get("explanation")
         )

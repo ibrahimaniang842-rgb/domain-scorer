@@ -28,6 +28,10 @@
         .score-item { background: #1f1f23; padding: 12px 16px; border-radius: 10px; }
         .score-label { font-size: 13px; color: #a1a1aa; }
         .score-value { font-size: 28px; font-weight: 700; }
+        .toxicity-block { margin: 12px 0; padding: 12px; background: #1f1f23; border-radius: 10px; border-left: 4px solid #4ade80; }
+        .toxicity-safe { border-color: #4ade80; }
+        .toxicity-suspicious { border-color: #fbbf24; }
+        .toxicity-toxic { border-color: #f87171; }
         .raw-data { background: #1f1f23; padding: 16px; border-radius: 10px; font-family: monospace; font-size: 14px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; color: #d4d4d8; margin-top: 12px; }
         .error { background: #450a0a; border: 1px solid #7f1d1d; padding: 16px; border-radius: 12px; color: #fca5a5; }
         .loading { color: #a1a1aa; font-style: italic; }
@@ -38,7 +42,6 @@
         .batch-results { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
         .batch-item { background: #1f1f23; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6; }
         .batch-item .b-domain { font-weight: 600; }
-        .batch-item .b-seo { float: right; }
         .footer { margin-top: 40px; text-align: center; color: #52525b; font-size: 14px; }
         .blacklist-safe { color: #4ade80; }
         .blacklist-danger { color: #f87171; }
@@ -49,18 +52,11 @@
 <div class="container">
     <h1>🔍 Domain Scorer</h1>
     <p class="subtitle">Analyse SEO, monétisation et risque des domaines expirés.</p>
-
-    <!-- Section unique -->
     <div class="search-box">
-        <input type="text" id="domainInput" placeholder="ex: google.com, shopify.com, bitcoin.org" value="openai.com">
+        <input type="text" id="domainInput" placeholder="ex: google.com, shopify.com" value="openai.com">
         <button id="analyzeBtn">Analyser</button>
     </div>
-
-    <div id="result">
-        <div class="loading">Entrez un domaine pour commencer.</div>
-    </div>
-
-    <!-- Section batch -->
+    <div id="result"><div class="loading">Entrez un domaine pour commencer.</div></div>
     <div class="batch-section">
         <h3>📦 Analyse batch (un domaine par ligne)</h3>
         <textarea id="batchInput" placeholder="google.com&#10;openai.com&#10;shopify.com">google.com
@@ -70,13 +66,10 @@ bitcoin.org</textarea>
         <button id="batchBtn" class="batch-btn">Analyser tout</button>
         <div id="batchResult" class="batch-results"></div>
     </div>
-
     <div class="footer">API hébergée sur Render • Pour une utilisation professionnelle, contactez-nous.</div>
 </div>
-
 <script>
     const API_BASE = "https://domain-scorer-b72x.onrender.com";
-
     document.getElementById('analyzeBtn').addEventListener('click', analyzeSingle);
     document.getElementById('domainInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') analyzeSingle(); });
     document.getElementById('batchBtn').addEventListener('click', analyzeBatch);
@@ -86,23 +79,22 @@ bitcoin.org</textarea>
         if (!domain) return alert('Veuillez entrer un domaine.');
         const btn = document.getElementById('analyzeBtn');
         const resultDiv = document.getElementById('result');
-
         btn.disabled = true;
         resultDiv.innerHTML = '<div class="loading">⏳ Analyse en cours...</div>';
-
         try {
             const resp = await fetch(`${API_BASE}/score?domain=${encodeURIComponent(domain)}`);
             const data = await resp.json();
-
             if (!resp.ok) {
                 resultDiv.innerHTML = `<div class="error">❌ Erreur ${resp.status}: ${data.detail || 'Domaine invalide'}</div>`;
                 return;
             }
-
             const badgeColor = data.danger_level === 'GREEN' ? 'badge-green' : data.danger_level === 'YELLOW' ? 'badge-yellow' : 'badge-red';
             const raw = data.raw_data;
+            const tox = data.toxicity || { score: 0, level: 'UNKNOWN', reasons: [] };
+            const toxColor = tox.level === 'SAFE' ? '#4ade80' : tox.level === 'SUSPICIOUS' ? '#fbbf24' : tox.level === 'TOXIC' ? '#f87171' : '#a1a1aa';
+            const toxIcon = tox.level === 'SAFE' ? '✅' : tox.level === 'SUSPICIOUS' ? '⚠️' : tox.level === 'TOXIC' ? '🚫' : '❓';
+            const toxClass = tox.level === 'SAFE' ? 'toxicity-safe' : tox.level === 'SUSPICIOUS' ? 'toxicity-suspicious' : 'toxicity-toxic';
 
-            // Statut blacklist
             let blacklistHtml = '';
             if (raw.blacklist_status) {
                 const status = raw.blacklist_status;
@@ -111,22 +103,26 @@ bitcoin.org</textarea>
                 const isBlacklisted = !isSafe && !isUnknown;
                 const icon = isBlacklisted ? '🚫' : isSafe ? '✅' : '❓';
                 const className = isBlacklisted ? 'blacklist-danger' : isSafe ? 'blacklist-safe' : 'blacklist-unknown';
-                blacklistHtml = `<br>🛡️ Blacklist: <strong class="${className}">${icon} ${status}</strong>`;
+                blacklistHtml = `<br>🛡️ Security Check: <strong class="${className}">${icon} ${status}</strong>`;
                 if (raw.blacklist_reason) blacklistHtml += ` <span style="font-size:13px; color:#a1a1aa;">(${raw.blacklist_reason})</span>`;
             }
 
             resultDiv.innerHTML = `
                 <div class="card">
-                    <div class="domain-name">
-                        ${data.domain}
-                        <span class="badge ${badgeColor}">${data.danger_level}</span>
-                    </div>
+                    <div class="domain-name">${data.domain} <span class="badge ${badgeColor}">${data.danger_level}</span></div>
                     <div class="scores-grid">
                         <div class="score-item"><div class="score-label">SEO Score</div><div class="score-value">${data.seo_score}</div></div>
                         <div class="score-item"><div class="score-label">Monétisation</div><div class="score-value">${data.monetization_score}</div></div>
                     </div>
+                    <div class="toxicity-block ${toxClass}">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><strong>Toxicité SEO</strong> <span style="color: ${toxColor};">${toxIcon} ${tox.level}</span></span>
+                            <span style="font-size: 24px; font-weight: 700; color: ${toxColor};">${tox.score}/100</span>
+                        </div>
+                        ${tox.reasons.length > 0 ? `<div style="font-size: 13px; color: #a1a1aa; margin-top: 6px;">⚠️ ${tox.reasons.join(' • ')}</div>` : '<div style="font-size: 13px; color: #a1a1aa; margin-top: 6px;">✅ Aucun signal de toxicité détecté.</div>'}
+                    </div>
                     <div style="margin-top: 8px; color: #a1a1aa; font-size: 14px;">
-                        <strong>Raisons :</strong> ${data.danger_reasons.join(', ')}
+                        <strong>Raisons du danger :</strong> ${data.danger_reasons.join(', ')}
                     </div>
                     <div class="raw-data">
                         📊 Âge: ${raw.whois_age_days || '?'} jours | DR: ${raw.ahrefs_dr || '?'} | Archive: ${raw.archive_snapshot_count || '?'} snapshots
@@ -145,12 +141,10 @@ bitcoin.org</textarea>
         const text = document.getElementById('batchInput').value;
         const domains = text.split('\n').map(d => d.trim()).filter(d => d);
         if (domains.length === 0) return alert('Entrez au moins un domaine.');
-
         const btn = document.getElementById('batchBtn');
         const resultDiv = document.getElementById('batchResult');
         btn.disabled = true;
         resultDiv.innerHTML = '<div class="loading">⏳ Analyse de ' + domains.length + ' domaines...</div>';
-
         try {
             const resp = await fetch(`${API_BASE}/batch-score`, {
                 method: 'POST',
@@ -158,15 +152,15 @@ bitcoin.org</textarea>
                 body: JSON.stringify({ domains: domains })
             });
             const data = await resp.json();
-
             if (!resp.ok) {
                 resultDiv.innerHTML = `<div class="error">❌ Erreur serveur: ${data.detail || 'Erreur inconnue'}</div>`;
                 return;
             }
-
             let html = '';
             data.results.forEach(r => {
                 const badgeColor = r.danger_level === 'GREEN' ? '#4ade80' : r.danger_level === 'YELLOW' ? '#fbbf24' : '#f87171';
+                const tox = r.toxicity || { level: 'UNKNOWN', score: 0 };
+                const toxIcon = tox.level === 'SAFE' ? '✅' : tox.level === 'SUSPICIOUS' ? '⚠️' : tox.level === 'TOXIC' ? '🚫' : '❓';
                 const raw = r.raw_data || {};
                 let blacklistBadge = '';
                 if (raw.blacklist_status) {
@@ -179,6 +173,7 @@ bitcoin.org</textarea>
                     <div class="batch-item" style="border-left-color: ${badgeColor};">
                         <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}${blacklistBadge}</span></div>
                         <div>SEO: ${r.seo_score} | Mono: ${r.monetization_score}</div>
+                        <div style="font-size:12px; color:#a1a1aa;">Toxicity: ${toxIcon} ${tox.score}</div>
                     </div>
                 `;
             });
@@ -189,8 +184,6 @@ bitcoin.org</textarea>
             btn.disabled = false;
         }
     }
-
-    // Auto-analyze on load
     window.addEventListener('load', analyzeSingle);
 </script>
 </body>
