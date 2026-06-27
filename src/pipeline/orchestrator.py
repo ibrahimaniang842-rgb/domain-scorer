@@ -7,10 +7,12 @@ from src.fetchers.whois_fetcher import get_whois_age
 from src.fetchers.ahrefs_fetcher import get_ahrefs_dr
 from src.fetchers.archive_fetcher import get_archive_snapshot_count
 from src.fetchers.blacklist_fetcher import get_blacklist_status
+from src.fetchers.wayback_content_fetcher import get_wayback_snapshots
 from src.scoring.seo import compute_seo_score
 from src.scoring.monetization import compute_monetization_score
 from src.scoring.danger import compute_danger
 from src.scoring.toxicity import compute_toxicity
+from src.scoring.niche_analyzer import analyze_niche_history
 from src.pipeline.cache import get_cached_result, set_cached_result
 
 logger = logging.getLogger(__name__)
@@ -59,6 +61,22 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
             blacklist_status = None
             blacklist_reason = None
 
+        # --- NOUVEAU V1.2 : Analyse sémantique Wayback ---
+        niche_history = None
+        niche_shift = None
+        if use_archive:
+            snapshots = await get_wayback_snapshots(domain, session)
+            if snapshots and len(snapshots) >= 2:
+                niche_shift = analyze_niche_history(snapshots)
+                niche_history = niche_shift.get("history", []) if niche_shift else []
+            else:
+                niche_shift = {
+                    "shift_detected": False,
+                    "shift_message": "Historique insuffisant pour analyser la niche",
+                    "confidence": 0
+                }
+        # --- FIN NOUVEAU V1.2 ---
+
         raw = RawData(
             domain=domain,
             whois_age_days=age,
@@ -66,7 +84,9 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
             archive_snapshot_count=archive_count,
             archive_status=archive_status,
             blacklist_status=blacklist_status,
-            blacklist_reason=blacklist_reason
+            blacklist_reason=blacklist_reason,
+            niche_history=niche_history,
+            niche_shift=niche_shift
         )
 
         seo = compute_seo_score(raw)

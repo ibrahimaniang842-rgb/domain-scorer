@@ -46,6 +46,8 @@
         .blacklist-safe { color: #4ade80; }
         .blacklist-danger { color: #f87171; }
         .blacklist-unknown { color: #fbbf24; }
+        .niche-shift-detected { color: #f87171; font-weight: 600; }
+        .niche-shift-stable { color: #4ade80; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -107,6 +109,30 @@ bitcoin.org</textarea>
                 if (raw.blacklist_reason) blacklistHtml += ` <span style="font-size:13px; color:#a1a1aa;">(${raw.blacklist_reason})</span>`;
             }
 
+            // --- AFFICHAGE NICHE V1.2 ---
+            let nicheHtml = '';
+            const nicheShift = data.niche_shift;
+            if (nicheShift && nicheShift.history && nicheShift.history.length > 0) {
+                const history = nicheShift.history;
+                const shiftDetected = nicheShift.shift_detected || false;
+                const shiftMsg = nicheShift.shift_message || '';
+                const confidence = nicheShift.confidence || 0;
+                const icon = shiftDetected ? '🚨' : '📊';
+                const color = shiftDetected ? '#f87171' : '#4ade80';
+                const className = shiftDetected ? 'niche-shift-detected' : 'niche-shift-stable';
+                
+                let historyStr = history.map(h => `${h.year || h.timestamp?.slice(0,4) || '??'} (${h.niche || '?'})`).join(' → ');
+                nicheHtml = `<br>📜 Historique des niches: <strong class="${className}">${icon} ${historyStr}</strong>`;
+                if (shiftDetected) {
+                    nicheHtml += ` <span style="color:#f87171;">⚠️ ${shiftMsg}</span>`;
+                }
+                if (confidence > 50) {
+                    nicheHtml += ` <span style="font-size:13px; color:#a1a1aa;">(confiance: ${confidence}%)</span>`;
+                }
+            } else if (nicheShift && nicheShift.shift_message) {
+                nicheHtml = `<br>📜 Historique des niches: <span style="color:#a1a1aa;">${nicheShift.shift_message}</span>`;
+            }
+
             resultDiv.innerHTML = `
                 <div class="card">
                     <div class="domain-name">${data.domain} <span class="badge ${badgeColor}">${data.danger_level}</span></div>
@@ -127,6 +153,7 @@ bitcoin.org</textarea>
                     <div class="raw-data">
                         📊 Âge: ${raw.whois_age_days || '?'} jours | DR: ${raw.ahrefs_dr || '?'} | Archive: ${raw.archive_snapshot_count || '?'} snapshots
                         ${blacklistHtml}
+                        ${nicheHtml}
                     </div>
                 </div>
             `;
@@ -169,9 +196,14 @@ bitcoin.org</textarea>
                     const isBlacklisted = !isSafe && status !== 'UNKNOWN';
                     blacklistBadge = isBlacklisted ? ' 🚫' : isSafe ? ' ✅' : ' ❓';
                 }
+                let nicheBadge = '';
+                const nicheShift = r.niche_shift;
+                if (nicheShift && nicheShift.shift_detected) {
+                    nicheBadge = ' 🔄';
+                }
                 html += `
                     <div class="batch-item" style="border-left-color: ${badgeColor};">
-                        <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}${blacklistBadge}</span></div>
+                        <div class="b-domain">${r.domain} <span style="font-size:12px; color:${badgeColor};">${r.danger_level}${blacklistBadge}${nicheBadge}</span></div>
                         <div>SEO: ${r.seo_score} | Mono: ${r.monetization_score}</div>
                         <div style="font-size:12px; color:#a1a1aa;">Toxicity: ${toxIcon} ${tox.score}</div>
                     </div>

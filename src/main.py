@@ -2,12 +2,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import re
 from urllib.parse import urlparse
 from src.pipeline.orchestrator import score_domain
 
-app = FastAPI(title="Domain Scorer MVP", version="1.0")
+app = FastAPI(title="Domain Scorer MVP", version="1.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +36,7 @@ class ScoreResponse(BaseModel):
     danger_level: str
     danger_reasons: List[str]
     toxicity: dict
+    niche_shift: Optional[dict] = None   # NOUVEAU V1.2
     raw_data: dict
 
 class BatchRequest(BaseModel):
@@ -43,7 +44,7 @@ class BatchRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "1.0"}
+    return {"status": "ok", "version": "1.2"}
 
 @app.get("/score", response_model=ScoreResponse)
 async def get_score(domain: str):
@@ -59,6 +60,7 @@ async def get_score(domain: str):
             danger_level=result.danger.level,
             danger_reasons=result.danger.reasons,
             toxicity=result.toxicity.to_dict(),
+            niche_shift=result.raw.niche_shift,
             raw_data=result.raw.to_dict()
         )
     except Exception as e:
@@ -78,6 +80,7 @@ async def batch_score(request: BatchRequest, deep_scan: bool = False):
                     "danger_level": "ERROR",
                     "danger_reasons": ["Domaine invalide"],
                     "toxicity": {"score": 0, "level": "UNKNOWN", "reasons": []},
+                    "niche_shift": None,
                     "raw_data": {}
                 })
                 continue
@@ -89,6 +92,7 @@ async def batch_score(request: BatchRequest, deep_scan: bool = False):
                 "danger_level": result.danger.level,
                 "danger_reasons": result.danger.reasons,
                 "toxicity": result.toxicity.to_dict(),
+                "niche_shift": result.raw.niche_shift,
                 "raw_data": result.raw.to_dict()
             })
         except Exception as e:
@@ -99,6 +103,7 @@ async def batch_score(request: BatchRequest, deep_scan: bool = False):
                 "danger_level": "ERROR",
                 "danger_reasons": [str(e)],
                 "toxicity": {"score": 0, "level": "UNKNOWN", "reasons": []},
+                "niche_shift": None,
                 "raw_data": {}
             })
     return {"results": results}
