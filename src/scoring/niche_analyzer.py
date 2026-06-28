@@ -1,10 +1,10 @@
 # src/scoring/niche_analyzer.py
 import re
-from bs4 import BeautifulSoup
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Dictionnaire des mots-clés par niche
 NICHE_KEYWORDS = {
     "automobile": ["voiture", "auto", "moteur", "garage", "car", "toyota", "ford", "bmw", "renault", "peugeot"],
     "casino": ["casino", "poker", "betting", "gambling", "slot", "jackpot", "blackjack", "roulette"],
@@ -20,22 +20,11 @@ NICHE_KEYWORDS = {
     "gaming": ["game", "play", "gaming", "esport", "stream", "twitch", "youtube"]
 }
 
-def _extract_text(html: str) -> str:
-    try:
-        soup = BeautifulSoup(html, 'html.parser')
-        for tag in soup(["script", "style", "meta", "noscript", "link"]):
-            tag.decompose()
-        text = soup.get_text(separator=' ', strip=True)
-        # Nettoyer les espaces multiples
-        text = re.sub(r'\s+', ' ', text)
-        return text.lower()
-    except Exception as e:
-        logger.warning(f"[NICHE] Erreur extraction HTML: {e}")
-        return ""
-
 def _detect_niche(text: str) -> str:
-    if len(text) < 100:  # Texte trop court
+    """Détecte la niche dominante dans un texte."""
+    if len(text) < 100:
         return "unknown"
+    text = text.lower()
     scores = {}
     for niche, keywords in NICHE_KEYWORDS.items():
         count = sum(1 for kw in keywords if kw in text)
@@ -43,10 +32,14 @@ def _detect_niche(text: str) -> str:
             scores[niche] = count
     if not scores:
         return "unknown"
-    # Retourner la niche avec le plus d'occurrences
     return max(scores, key=scores.get)
 
 def analyze_niche_history(snapshots: list) -> dict:
+    """
+    Analyse l'historique des niches à partir des snapshots.
+    Entrée : liste de snapshots de la forme :
+    [{"timestamp": "...", "year": "...", "text": "..."}]
+    """
     if not snapshots or len(snapshots) < 2:
         return {
             "history": [],
@@ -57,15 +50,13 @@ def analyze_niche_history(snapshots: list) -> dict:
 
     history = []
     for snap in snapshots:
-        html = snap.get("html", "")
-        if not html or len(html) < 500:
+        text = snap.get("text", "")
+        if not text or len(text) < 100:
             continue
-        text = _extract_text(html)
         niche = _detect_niche(text)
-        ts = snap.get("timestamp", "")
-        year = ts[:4] if len(ts) >= 4 else "??"
+        year = snap.get("year", "??")
         history.append({
-            "timestamp": ts,
+            "timestamp": snap.get("timestamp", ""),
             "year": year,
             "niche": niche if niche != "unknown" else "Non détectée"
         })
@@ -93,7 +84,7 @@ def analyze_niche_history(snapshots: list) -> dict:
             confidence = 95
             shift_message += " (niche à risque SEO)"
     else:
-        shift_message = f"Niches stables ou inconnues"
+        shift_message = "Niches stables ou inconnues"
 
     return {
         "history": history,

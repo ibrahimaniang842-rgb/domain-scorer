@@ -66,20 +66,29 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
             blacklist_status = None
             blacklist_reason = None
 
-        # --- Analyse sémantique Wayback (V1.2) ---
+        # --- Analyse sémantique Wayback (V1.4.3 intégré) ---
         niche_history = None
         niche_shift = None
         if use_archive:
-            snapshots = await get_wayback_snapshots(domain, session)
-            if snapshots and len(snapshots) >= 2:
-                niche_shift = analyze_niche_history(snapshots)
-                niche_history = niche_shift.get("history", []) if niche_shift else []
+            wb_result = await get_wayback_snapshots(domain, session)
+            if wb_result and wb_result.get("status") == "OK":
+                snapshots = wb_result.get("snapshots", [])
+                if snapshots and len(snapshots) >= 2:
+                    niche_shift = analyze_niche_history(snapshots)
+                    niche_history = niche_shift.get("history", []) if niche_shift else []
+                else:
+                    niche_shift = {
+                        "shift_detected": False,
+                        "shift_message": "Snapshots récupérés mais insuffisants pour une analyse fiable",
+                        "confidence": 0
+                    }
             else:
                 niche_shift = {
                     "shift_detected": False,
-                    "shift_message": "Historique insuffisant pour analyser la niche",
+                    "shift_message": "Historique insuffisant pour analyser la niche (timeout ou indisponible)",
                     "confidence": 0
                 }
+        # --- FIN ANALYSE WAYBACK ---
 
         raw = RawData(
             domain=domain,
