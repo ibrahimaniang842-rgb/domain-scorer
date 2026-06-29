@@ -1,10 +1,10 @@
 # src/fetchers/wayback_content_fetcher.py
 """
 Wayback Content Fetcher V1.4.3
-- Timeout CDX augmenté à 20s, limit réduit à 50.
-- URL snapshots en HTTP (plus stable).
-- Headers plus réalistes pour éviter le blocage.
-- Logs détaillés pour le débogage.
+- Timeout CDX 20s, limit=50
+- URL snapshots en HTTP (plus stable)
+- Headers réalistes
+- Logs détaillés pour débogage
 """
 
 import asyncio
@@ -17,10 +17,10 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-_WAYBACK_SEMAPHORE = asyncio.Semaphore(3)  # Réduit à 3 pour limiter la charge
+_WAYBACK_SEMAPHORE = asyncio.Semaphore(3)
 
-_CDX_TIMEOUT = aiohttp.ClientTimeout(total=20, connect=5)      # 20s pour CDX
-_SNAPSHOT_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=5) # 15s pour snapshot
+_CDX_TIMEOUT = aiohttp.ClientTimeout(total=20, connect=5)
+_SNAPSHOT_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=5)
 
 _MIN_TEXT_CHARS = 150
 
@@ -89,13 +89,11 @@ def _result(status: str, snapshots: list, total: int, years: list = None) -> Dic
 async def _fetch_cdx_timestamps(domain: str, session: aiohttp.ClientSession) -> Optional[List[str]]:
     cdx_url = (
         f"https://web.archive.org/cdx/search/cdx"
-        f"?url={domain}/*&output=json&limit=50&fl=timestamp&collapse=timestamp:6"  # limit=50 pour accélérer
+        f"?url={domain}/*&output=json&limit=50&fl=timestamp&collapse=timestamp:6"
     )
-    print(f"[DEBUG CDX] {domain} -> {cdx_url}")  # Pour déboguer
     try:
         async with _WAYBACK_SEMAPHORE:
             async with session.get(cdx_url, timeout=_CDX_TIMEOUT) as resp:
-                print(f"[DEBUG CDX] {domain} -> status {resp.status}")
                 if resp.status != 200:
                     return []
                 data = await resp.json(content_type=None)
@@ -103,10 +101,10 @@ async def _fetch_cdx_timestamps(domain: str, session: aiohttp.ClientSession) -> 
                     return []
                 return [row[0] for row in data[1:] if row and row[0]]
     except asyncio.TimeoutError:
-        print(f"[WAYBACK CDX] {domain} -> TIMEOUT après {_CDX_TIMEOUT.total}")
+        logger.warning("[WAYBACK CDX] %s -> TIMEOUT", domain)
         return None
     except Exception as e:
-        print(f"[WAYBACK CDX] {domain} -> ERREUR : {e}")
+        logger.error("[WAYBACK CDX] %s -> ERREUR : %s", domain, e)
         return []
 
 
@@ -154,13 +152,9 @@ async def _fetch_and_clean(domain: str, timestamp: str, session: aiohttp.ClientS
         return None
 
     text = _extract_clean_text(html)
-    print(f"[WAYBACK TEXT] {domain} {timestamp} -> {len(text)} caractères")
-
     if not text or len(text) < _MIN_TEXT_CHARS:
-        print(f"[WAYBACK TEXT] {domain} {timestamp} -> texte trop court")
         return None
     if _PARKED_OR_404_RE.search(text):
-        print(f"[WAYBACK TEXT] {domain} {timestamp} -> page de parking détectée")
         return None
 
     try:
@@ -172,22 +166,17 @@ async def _fetch_and_clean(domain: str, timestamp: str, session: aiohttp.ClientS
 
 
 async def _fetch_raw_html(domain: str, timestamp: str, session: aiohttp.ClientSession) -> Optional[str]:
-    # Utilisation de HTTP (plus stable que HTTPS)
     url = f"http://web.archive.org/web/{timestamp}id_/{domain}"
-    print(f"[WAYBACK FETCH] {domain} {timestamp} -> tentative")
     try:
         async with _WAYBACK_SEMAPHORE:
             async with session.get(url, timeout=_SNAPSHOT_TIMEOUT, allow_redirects=True) as resp:
-                print(f"[WAYBACK FETCH] {domain} {timestamp} -> status {resp.status}")
                 if resp.status != 200:
                     return None
                 raw_bytes = await resp.read()
                 return _decode_bytes(raw_bytes, resp)
     except asyncio.TimeoutError:
-        print(f"[WAYBACK FETCH] {domain} {timestamp} -> TIMEOUT")
         return None
-    except Exception as e:
-        print(f"[WAYBACK FETCH] {domain} {timestamp} -> EXCEPTION : {e}")
+    except Exception:
         return None
 
 
