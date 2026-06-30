@@ -1,7 +1,14 @@
 import pytest
+from unittest.mock import AsyncMock, patch
 
 from src.core.models import Danger, RawData, Result, Scores, Toxicity, clone_result
-from src.pipeline.cache import clear_cache, get_cached_result, set_cached_result
+from src.pipeline.cache import (
+    clear_cache,
+    get_archive_history,
+    get_cached_result,
+    set_cached_result,
+    update_archive_history,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +45,31 @@ async def test_cache_skips_failed_quality():
     )
     await set_cached_result(result)
     assert await get_cached_result("broken.com") is None
+
+
+@pytest.mark.asyncio
+async def test_archive_history_cache_merges_sources():
+    archive = {
+        "exists": True,
+        "first_snapshot": "20180101120000",
+        "last_snapshot": "20240101120000",
+        "status": "OK",
+    }
+    wayback = {
+        "status": "OK",
+        "snapshots": [
+            {"timestamp": "20180101120000", "year": 2018, "text": "x" * 150},
+            {"timestamp": "20240101120000", "year": 2024, "text": "y" * 150},
+        ],
+        "years_covered": [2018, 2024],
+        "total_available": 10,
+    }
+    await update_archive_history("Example.COM", archive_status=archive)
+    await update_archive_history("example.com", wayback_data=wayback)
+
+    history = await get_archive_history("example.com")
+    assert history.archive_status["first_snapshot"] == "20180101120000"
+    assert len(history.wayback_data["snapshots"]) == 2
 
 
 def test_clone_result_isolated():

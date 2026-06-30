@@ -1,5 +1,7 @@
 import re
 import logging
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,72 @@ def _format_year(snap: dict) -> str:
     return "inconnue"
 
 
-def analyze_niche_history(snapshots: list) -> dict:
+def _domain_creation_date(whois_age_days: Optional[int]) -> Optional[datetime]:
+    if whois_age_days is None or whois_age_days < 0:
+        return None
+    return datetime.now(timezone.utc) - timedelta(days=whois_age_days)
+
+
+def _parse_snapshot_date(snap: dict) -> Optional[datetime]:
+    timestamp = snap.get("timestamp", "")
+    if len(timestamp) >= 8 and timestamp[:8].isdigit():
+        try:
+            return datetime(
+                int(timestamp[:4]),
+                int(timestamp[4:6]),
+                int(timestamp[6:8]),
+                tzinfo=timezone.utc,
+            )
+        except ValueError:
+            pass
+
+    year = snap.get("year")
+    if isinstance(year, int) and year > 1990:
+        return datetime(year, 1, 1, tzinfo=timezone.utc)
+
+    if len(timestamp) >= 4 and timestamp[:4].isdigit():
+        return datetime(int(timestamp[:4]), 1, 1, tzinfo=timezone.utc)
+
+    return None
+
+
+def _is_snapshot_chronologically_valid(snap: dict, creation_date: Optional[datetime]) -> bool:
+    if creation_date is None:
+        return True
+
+    snap_date = _parse_snapshot_date(snap)
+    if snap_date is None:
+        return False
+
+    if snap_date.date() < creation_date.date():
+        return False
+
+    year = snap.get("year")
+    if isinstance(year, int) and year > 1990 and year < creation_date.year:
+        return False
+
+    return True
+
+
+def _filter_snapshots_by_whois(snapshots: list, whois_age_days: Optional[int]) -> list:
+    creation_date = _domain_creation_date(whois_age_days)
+    if creation_date is None:
+        return snapshots
+
+    valid = [snap for snap in snapshots if _is_snapshot_chronologically_valid(snap, creation_date)]
+    dropped = len(snapshots) - len(valid)
+    if dropped:
+        logger.info(
+            "Ignored %d snapshot(s) predating WHOIS creation (%s)",
+            dropped,
+            creation_date.date().isoformat(),
+        )
+    return valid
+
+
+def analyze_niche_history(snapshots: list, whois_age_days: Optional[int] = None) -> dict:
+    snapshots = _filter_snapshots_by_whois(snapshots, whois_age_days)
+
     if not snapshots or len(snapshots) < 2:
         return {
             "history": [],

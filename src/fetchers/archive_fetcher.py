@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 import aiohttp
 
 from src.fetchers.http_utils import ARCHIVE_TIMEOUT, DEFAULT_HEADERS, fetch_with_retry
+from src.pipeline.cache import get_cached_archive_status, update_archive_history
 
 logger = logging.getLogger(__name__)
 
@@ -47,5 +48,13 @@ async def get_archive_status(domain: str, session: aiohttp.ClientSession) -> Dic
 
     result = await fetch_with_retry(_request, label=f"archive:{domain}")
     if result is None:
+        cached = await get_cached_archive_status(domain)
+        if cached:
+            logger.info("[archive] recovered cached archive status for %s after timeout", domain)
+            return cached
         return _empty_result("TIMEOUT")
+
+    if result.get("status") == "OK" and result.get("exists"):
+        await update_archive_history(domain, archive_status=result)
+
     return result

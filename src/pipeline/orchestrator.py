@@ -11,7 +11,13 @@ from src.fetchers.blacklist_fetcher import get_blacklist_status
 from src.fetchers.http_utils import DEFAULT_TIMEOUT
 from src.fetchers.whois_fetcher import get_whois_age
 from src.fetchers.wayback_content_fetcher import get_wayback_snapshots
-from src.pipeline.cache import get_cached_result, set_cached_result
+from src.pipeline.cache import (
+    get_cached_archive_status,
+    get_cached_result,
+    get_cached_wayback_data,
+    set_cached_result,
+    update_archive_history,
+)
 from src.scoring.danger import compute_danger
 from src.scoring.monetization import compute_monetization_score
 from src.scoring.niche_analyzer import analyze_niche_history
@@ -47,11 +53,36 @@ async def _safe_fetch(coro, name: str, domain: str, fetch_errors: Dict[str, str]
 def _resolve_data_quality(fetch_errors: Dict[str, str], archive_status: Optional[str]) -> str:
     if fetch_errors.get("ahrefs") and fetch_errors.get("whois"):
         return "FAILED"
-    if archive_status == "TIMEOUT" or fetch_errors.get("archive") == "timeout":
+    if archive_status in {"TIMEOUT", "ERROR"} or fetch_errors.get("archive") == "timeout":
         return "PARTIAL"
     if fetch_errors:
         return "PARTIAL"
     return "COMPLETE"
+
+
+def _archive_failure_status(status: Optional[str]) -> bool:
+    return status in {"TIMEOUT", "ERROR"}
+
+
+async def _resolve_wayback_result(domain: str, wb_result: Any) -> Optional[Dict[str, Any]]:
+    if isinstance(wb_result, dict):
+        status = wb_result.get("status")
+        snapshots = wb_result.get("snapshots") or []
+        if status == "OK" or (status == "PARTIAL" and snapshots):
+            await update_archive_history(domain, wayback_data=wb_result)
+            return wb_result
+        if _archive_failure_status(status):
+            cached = await get_cached_wayback_data(domain)
+            if cached and cached.get("snapshots"):
+                logger.info("[orchestrator] recovered wayback snapshots from cache for %s", domain)
+                return cached
+        return wb_result
+
+    cached = await get_cached_wayback_data(domain)
+    if cached and cached.get("snapshots"):
+        logger.info("[orchestrator] recovered wayback snapshots from cache for %s", domain)
+        return cached
+    return None
 
 
 async def score_domain(domain: str, use_archive: bool = True) -> Result:
@@ -91,8 +122,30 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
             archive_first_date = archive_data.get("first_snapshot")
             archive_last_date = archive_data.get("last_snapshot")
             archive_status = archive_data.get("status", "ERROR")
-            if archive_status == "TIMEOUT":
-                fetch_errors["archive"] = "timeout"
+            if _archive_failure_status(archive_status):
+                cached_archive = await get_cached_archive_status(domain)
+                if cached_archive:
+                    logger.info("[orchestrator] recovered archive status from cache for %s", domain)
+                    archive_data = cached_archive
+                    archive_exists = cached_archive.get("exists")
+                    archive_first_date = cached_archive.get("first_snapshot")
+                    archive_last_date = cached_archive.get("last_snapshot")
+                    archive_status = cached_archive.get("status", "OK")
+                    fetch_errors.pop("archive", None)
+                else:
+                    fetch_errors["archive"] = archive_status.lower()
+            elif archive_status == "OK" and archive_exists:
+                await update_archive_history(domain, archive_status=archive_data)
+                fetch_errors.pop("archive", None)
+        elif use_archive:
+            cached_archive = await get_cached_archive_status(domain)
+            if cached_archive:
+                logger.info("[orchestrator] recovered archive status from cache for %s", domain)
+                archive_exists = cached_archive.get("exists")
+                archive_first_date = cached_archive.get("first_snapshot")
+                archive_last_date = cached_archive.get("last_snapshot")
+                archive_status = cached_archive.get("status", "OK")
+                fetch_errors.pop("archive", None)
 
         blacklist_status = None
         blacklist_reason = None
@@ -110,23 +163,26 @@ async def score_domain(domain: str, use_archive: bool = True) -> Result:
                 domain,
                 fetch_errors,
             )
+            wb_result = await _resolve_wayback_result(domain, wb_result)
 
             if isinstance(wb_result, dict):
                 wb_status = wb_result.get("status")
                 snapshots = wb_result.get("snapshots") or []
+                if wb_status == "OK":
+                    fetch_errors.pop("wayback", None)
 
-                if wb_status == "TIMEOUT":
+                if _archive_failure_status(wb_status):
                     niche_shift = _niche_unavailable(
                         "Archive.org indisponible (timeout) — analyse de niche non effectuée",
                         status="TIMEOUT",
                     )
-                elif wb_status in {"NO_DATA", "PARTIAL"} or len(snapshots) < 2:
+                elif wb_status == "NO_DATA" or len(snapshots) < 2:
                     niche_shift = _niche_unavailable(
                         "Historique Wayback insuffisant pour une analyse de niche fiable",
                         status="INSUFFICIENT",
                     )
-                elif wb_status == "OK":
-                    niche_shift = analyze_niche_history(snapshots)
+                elif wb_status in {"OK", "PARTIAL"}:
+                    niche_shift = analyze_niche_history(snapshots, whois_age_days=age)
                     niche_history = niche_shift.get("history", [])
                 else:
                     niche_shift = _niche_unavailable(
