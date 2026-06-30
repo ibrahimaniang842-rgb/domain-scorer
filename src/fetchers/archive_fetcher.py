@@ -1,57 +1,51 @@
-# src/fetchers/archive_fetcher.py
+import logging
+from typing import Any, Dict, Optional
+
 import aiohttp
-import asyncio
-from typing import Optional
 
-ARCHIVE_URL_LIGHT = "https://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&limit=2&fl=timestamp"
-TIMEOUT = 3.0
+from src.fetchers.http_utils import ARCHIVE_TIMEOUT, DEFAULT_HEADERS, fetch_with_retry
 
-_cache = {}
+logger = logging.getLogger(__name__)
 
-async def get_archive_status(domain: str, session: aiohttp.ClientSession) -> dict:
-    """
-    Retourne :
-    {
-        "exists": bool,
-        "first_snapshot": "YYYYMMDDHHMMSS" ou None,
-        "last_snapshot": "YYYYMMDDHHMMSS" ou None,
-        "status": "OK" | "NO_DATA" | "TIMEOUT" | "ERROR"
+ARCHIVE_URL = (
+    "https://web.archive.org/cdx/search/cdx"
+    "?url={domain}/*&output=json&limit=2&fl=timestamp&collapse=timestamp:8"
+)
+
+
+def _empty_result(status: str) -> Dict[str, Any]:
+    return {
+        "exists": False,
+        "first_snapshot": None,
+        "last_snapshot": None,
+        "status": status,
     }
-    """
-    if domain in _cache:
-        return _cache[domain]
 
-    url = ARCHIVE_URL_LIGHT.format(domain=domain)
-    headers = {"User-Agent": "DomainScorer-MVP/1.0"}
 
-    try:
-        timeout = aiohttp.ClientTimeout(total=TIMEOUT)
-        async with session.get(url, headers=headers, timeout=timeout) as resp:
+async def get_archive_status(domain: str, session: aiohttp.ClientSession) -> Dict[str, Any]:
+    url = ARCHIVE_URL.format(domain=domain)
+
+    async def _request() -> Dict[str, Any]:
+        async with session.get(url, headers=DEFAULT_HEADERS, timeout=ARCHIVE_TIMEOUT) as resp:
             if resp.status != 200:
-                result = {"exists": False, "first_snapshot": None, "last_snapshot": None, "status": "NO_DATA"}
-                _cache[domain] = result
-                return result
-            data = await resp.json()
+                return _empty_result("NO_DATA")
+
+            data = await resp.json(content_type=None)
             if not data or len(data) < 2:
-                result = {"exists": False, "first_snapshot": None, "last_snapshot": None, "status": "NO_DATA"}
-                _cache[domain] = result
-                return result
-            timestamps = [row[0] for row in data[1:]]
-            first = timestamps[0]
-            last = timestamps[-1]
-            result = {
+                return _empty_result("NO_DATA")
+
+            timestamps = [row[0] for row in data[1:] if row and row[0]]
+            if not timestamps:
+                return _empty_result("NO_DATA")
+
+            return {
                 "exists": True,
-                "first_snapshot": first,
-                "last_snapshot": last,
-                "status": "OK"
+                "first_snapshot": timestamps[0],
+                "last_snapshot": timestamps[-1],
+                "status": "OK",
             }
-            _cache[domain] = result
-            return result
-    except asyncio.TimeoutError:
-        result = {"exists": False, "first_snapshot": None, "last_snapshot": None, "status": "TIMEOUT"}
-        _cache[domain] = result
-        return result
-    except Exception:
-        result = {"exists": False, "first_snapshot": None, "last_snapshot": None, "status": "ERROR"}
-        _cache[domain] = result
-        return result
+
+    result = await fetch_with_retry(_request, label=f"archive:{domain}")
+    if result is None:
+        return _empty_result("TIMEOUT")
+    return result

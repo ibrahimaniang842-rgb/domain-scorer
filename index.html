@@ -90,7 +90,8 @@ bitcoin.org</textarea>
             const resp = await fetch(`${API_BASE}/score?domain=${encodeURIComponent(domain)}`);
             const data = await resp.json();
             if (!resp.ok) {
-                resultDiv.innerHTML = `<div class="error">❌ Erreur ${resp.status}: ${data.detail || 'Domaine invalide'}</div>`;
+                const msg = data.detail || data.error || 'Domaine invalide';
+                resultDiv.innerHTML = `<div class="error">❌ Erreur ${resp.status}: ${msg}</div>`;
                 return;
             }
             const badgeColor = data.danger_level === 'GREEN' ? 'badge-green' : data.danger_level === 'YELLOW' ? 'badge-yellow' : 'badge-red';
@@ -127,6 +128,11 @@ bitcoin.org</textarea>
                 if (raw.blacklist_reason) blacklistHtml += ` <span style="font-size:13px; color:#a1a1aa;">(${raw.blacklist_reason})</span>`;
             }
 
+            const dataQuality = data.data_quality || raw.data_quality || 'COMPLETE';
+            const qualityBadge = dataQuality === 'COMPLETE' ? '✅ Données complètes'
+                : dataQuality === 'PARTIAL' ? '⚠️ Données partielles (certaines sources indisponibles)'
+                : '❌ Données insuffisantes';
+
             // --- Niche History ---
             let nicheHtml = '';
             const nicheShift = data.niche_shift;
@@ -142,7 +148,9 @@ bitcoin.org</textarea>
                     nicheHtml += ` <span style="color:#f87171;">⚠️ ${shiftMsg}</span>`;
                 }
             } else if (nicheShift && nicheShift.shift_message) {
-                nicheHtml = `<br>📜 Historique des niches: ${nicheShift.shift_message}`;
+                const status = nicheShift.analysis_status || '';
+                const prefix = status === 'TIMEOUT' ? '⏳' : status === 'INSUFFICIENT' ? '📭' : '📜';
+                nicheHtml = `<br>${prefix} Historique des niches: ${nicheShift.shift_message}`;
             }
 
             resultDiv.innerHTML = `
@@ -163,8 +171,9 @@ bitcoin.org</textarea>
                         <strong>Raisons du danger :</strong> ${data.danger_reasons.join(', ')}
                     </div>
                     <div class="raw-data">
-                        📊 Âge: ${raw.whois_age_days || '?'} jours | DR: ${raw.ahrefs_dr || '?'} <br>
-                        🗄️ Archive: ${archiveStatus}
+                        📊 Âge: ${raw.whois_age_days ?? '?'} jours | DR: ${raw.ahrefs_dr ?? '?'} <br>
+                        🗄️ Archive: ${archiveStatus}<br>
+                        📡 Qualité: ${qualityBadge}
                         ${blacklistHtml}
                         ${nicheHtml}
                     </div>

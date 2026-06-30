@@ -1,10 +1,8 @@
-# src/scoring/niche_analyzer.py
 import re
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Dictionnaire des mots-clés par niche
 NICHE_KEYWORDS = {
     "automobile": ["voiture", "auto", "moteur", "garage", "car", "toyota", "ford", "bmw", "renault", "peugeot"],
     "casino": ["casino", "poker", "betting", "gambling", "slot", "jackpot", "blackjack", "roulette"],
@@ -17,35 +15,42 @@ NICHE_KEYWORDS = {
     "real_estate": ["immobilier", "real estate", "property", "house", "apartment", "rent", "sale"],
     "ecommerce": ["shop", "store", "buy", "sell", "cart", "product", "deal", "discount"],
     "blog": ["blog", "news", "article", "post", "media", "press", "journal"],
-    "gaming": ["game", "play", "gaming", "esport", "stream", "twitch", "youtube"]
+    "gaming": ["game", "play", "gaming", "esport", "stream", "twitch", "youtube"],
 }
 
+
 def _detect_niche(text: str) -> str:
-    """Détecte la niche dominante dans un texte."""
     if len(text) < 100:
         return "unknown"
-    text = text.lower()
+    text_lower = text.lower()
     scores = {}
     for niche, keywords in NICHE_KEYWORDS.items():
-        count = sum(1 for kw in keywords if kw in text)
+        count = sum(1 for kw in keywords if kw in text_lower)
         if count > 0:
             scores[niche] = count
     if not scores:
         return "unknown"
     return max(scores, key=scores.get)
 
+
+def _format_year(snap: dict) -> str:
+    year = snap.get("year")
+    if isinstance(year, int) and year > 1990:
+        return str(year)
+    timestamp = snap.get("timestamp", "")
+    if len(timestamp) >= 4 and timestamp[:4].isdigit():
+        return timestamp[:4]
+    return "inconnue"
+
+
 def analyze_niche_history(snapshots: list) -> dict:
-    """
-    Analyse l'historique des niches à partir des snapshots.
-    Entrée : liste de snapshots de la forme :
-    [{"timestamp": "...", "year": "...", "text": "..."}]
-    """
     if not snapshots or len(snapshots) < 2:
         return {
             "history": [],
             "shift_detected": False,
-            "shift_message": "Pas assez d'historique",
-            "confidence": 0
+            "shift_message": "Historique insuffisant pour analyser la niche",
+            "confidence": 0,
+            "analysis_status": "INSUFFICIENT",
         }
 
     history = []
@@ -54,41 +59,41 @@ def analyze_niche_history(snapshots: list) -> dict:
         if not text or len(text) < 100:
             continue
         niche = _detect_niche(text)
-        year = snap.get("year", "??")
         history.append({
             "timestamp": snap.get("timestamp", ""),
-            "year": year,
-            "niche": niche if niche != "unknown" else "Non détectée"
+            "year": _format_year(snap),
+            "niche": niche if niche != "unknown" else "Non détectée",
         })
 
     if len(history) < 2:
         return {
             "history": history,
             "shift_detected": False,
-            "shift_message": "Historique insuffisant pour analyser la niche",
-            "confidence": 0
+            "shift_message": "Contenu insuffisant pour une analyse fiable de niche",
+            "confidence": 0,
+            "analysis_status": "INSUFFICIENT",
         }
 
-    # Détection de rupture
     first = history[0]["niche"]
     last = history[-1]["niche"]
-    shift_detected = (first != last and first != "Non détectée" and last != "Non détectée")
+    known_first = first != "Non détectée"
+    known_last = last != "Non détectée"
+    shift_detected = known_first and known_last and first != last
 
-    shift_message = ""
-    confidence = 0
     if shift_detected:
-        shift_message = f"⚠️ Changement de niche détecté : {first} → {last}"
+        shift_message = f"Changement de niche détecté : {first} → {last}"
         confidence = 80
-        toxic = ["casino", "adult", "pharma"]
-        if last in toxic:
+        if last in {"casino", "adult", "pharma"}:
             confidence = 95
             shift_message += " (niche à risque SEO)"
     else:
-        shift_message = "Niches stables ou inconnues"
+        shift_message = "Niches stables ou non identifiables"
+        confidence = 40 if known_first else 20
 
     return {
         "history": history,
         "shift_detected": shift_detected,
         "shift_message": shift_message,
-        "confidence": confidence
+        "confidence": confidence,
+        "analysis_status": "OK",
     }

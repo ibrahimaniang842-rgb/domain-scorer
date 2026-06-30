@@ -1,15 +1,15 @@
-# src/scoring/toxicity.py
 from src.core.models import RawData
+from src.scoring.trust import compute_trust_assessment
+
 
 def compute_toxicity(raw: RawData) -> dict:
     score = 0
     reasons = []
     age = raw.whois_age_days
     dr = raw.ahrefs_dr
-    archive_exists = raw.archive_exists
-    archive_first_date = raw.archive_first_date
     archive_status = raw.archive_status
     blacklist = raw.blacklist_status
+    trust = compute_trust_assessment(raw)
 
     if age is not None and age < 90:
         score += 25
@@ -19,38 +19,40 @@ def compute_toxicity(raw: RawData) -> dict:
         score += 20
         reasons.append("Faible autorité SEO (DR < 10)")
 
-    # --- Nouvelle logique Archive basée sur l'existence et les dates ---
-    if archive_exists and archive_first_date:
-        # Le domaine a une histoire
-        if age is not None and age > 3650:
-            try:
-                first_year = int(archive_first_date[:4])
-                # Si le premier snapshot est bien plus tardif que l'âge du domaine, c'est suspect
-                if first_year > (age / 365) + 2:
-                    score += 10
-                    reasons.append("Premier snapshot tardif (domaine ancien, archive récente)")
-            except:
-                pass
-    else:
-        # Pas d'archive ou timeout → pas de pénalité, juste un warning
-        if archive_status == "TIMEOUT":
-            reasons.append("Archive non vérifié (timeout) - ignoré")
-        elif archive_status == "NO_DATA":
-            reasons.append("Domaine sans historique archivé")
+    if trust.fraud_risk:
+        score += int(30 + trust.fraud_penalty * 40)
+        reasons.extend(trust.trust_reasons)
 
-    if dr is not None and age is not None and dr >= 50 and age < 180:
-        score += 30
-        reasons.append("DR élevé sur domaine récent - suspect")
+    if raw.archive_exists and raw.archive_first_date and age is not None and age > 3650:
+        try:
+            first_year = int(raw.archive_first_date[:4])
+            domain_birth_year = 2026 - (age // 365)
+            if first_year > domain_birth_year + 2:
+                score += 15
+                reasons.append("Premier snapshot Archive tardif par rapport à l'âge WHOIS")
+        except ValueError:
+            pass
 
-    if age is not None and age > 3650 and archive_exists is False and archive_status == "NO_DATA":
+    if archive_status == "TIMEOUT":
         score += 5
-        reasons.append("Domaine ancien sans aucune archive")
+        reasons.append("Archive.org timeout — confiance réduite")
+    elif archive_status == "NO_DATA" and raw.archive_exists is False:
+        if age is not None and age > 3650:
+            score += 10
+            reasons.append("Domaine ancien sans aucune trace Archive.org")
+        else:
+            reasons.append("Aucun historique archivé disponible")
 
-    if blacklist is not None and blacklist != "SAFE" and blacklist != "UNKNOWN":
+    if raw.niche_shift and raw.niche_shift.get("shift_detected"):
+        score += 20
+        reasons.append(raw.niche_shift.get("shift_message", "Changement de niche détecté"))
+
+    if blacklist not in (None, "SAFE", "UNKNOWN"):
         score += 50
         reasons.append(f"Domaine blacklisté (sécurité) : {blacklist}")
 
     reasons = list(dict.fromkeys(reasons))
+    score = min(score, 100)
 
     if score >= 60:
         level = "TOXIC"
@@ -59,4 +61,4 @@ def compute_toxicity(raw: RawData) -> dict:
     else:
         level = "SAFE"
 
-    return {"score": min(score, 100), "level": level, "reasons": reasons}
+    return {"score": score, "level": level, "reasons": reasons}
